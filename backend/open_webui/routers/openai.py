@@ -26,6 +26,7 @@ from open_webui.env import (
     AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST,
     ENABLE_FORWARD_USER_INFO_HEADERS,
     BYPASS_MODEL_ACCESS_CONTROL,
+    SOCKS_PROXY_URL,
 )
 from open_webui.models.users import UserModel
 
@@ -59,7 +60,9 @@ log.setLevel(SRC_LOG_LEVELS["OPENAI"])
 async def send_get_request(url, key=None, user: UserModel = None):
     timeout = aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST)
     try:
-        async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
+        async with aiohttp.ClientSession(
+            timeout=timeout, trust_env=not SOCKS_PROXY_URL
+        ) as session:
             async with session.get(
                 url,
                 headers={
@@ -76,6 +79,7 @@ async def send_get_request(url, key=None, user: UserModel = None):
                     ),
                 },
                 ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                proxy=SOCKS_PROXY_URL or None,
             ) as response:
                 return await response.json()
     except Exception as e:
@@ -235,6 +239,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
                     ),
                 },
                 stream=True,
+                proxies={"http": SOCKS_PROXY_URL, "https": SOCKS_PROXY_URL} if SOCKS_PROXY_URL else None,
             )
 
             r.raise_for_status()
@@ -565,7 +570,7 @@ async def verify_connection(
     api_config = form_data.config or {}
 
     async with aiohttp.ClientSession(
-        trust_env=True,
+        trust_env=not SOCKS_PROXY_URL,
         timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST),
     ) as session:
         try:
@@ -591,6 +596,7 @@ async def verify_connection(
                     url=f"{url}/openai/models?api-version={api_version}",
                     headers=headers,
                     ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                    proxy=SOCKS_PROXY_URL or None,
                 ) as r:
                     if r.status != 200:
                         # Extract response error details if available
@@ -609,6 +615,7 @@ async def verify_connection(
                     f"{url}/models",
                     headers=headers,
                     ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                    proxy=SOCKS_PROXY_URL or None,
                 ) as r:
                     if r.status != 200:
                         # Extract response error details if available
@@ -835,7 +842,8 @@ async def generate_chat_completion(
 
     try:
         session = aiohttp.ClientSession(
-            trust_env=True, timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT)
+            trust_env=not SOCKS_PROXY_URL,
+            timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT),
         )
 
         r = await session.request(
@@ -844,6 +852,7 @@ async def generate_chat_completion(
             data=payload,
             headers=headers,
             ssl=AIOHTTP_CLIENT_SESSION_SSL,
+            proxy=SOCKS_PROXY_URL or None,
         )
 
         # Check if response is SSE
@@ -914,7 +923,7 @@ async def embeddings(request: Request, form_data: dict, user):
     session = None
     streaming = False
     try:
-        session = aiohttp.ClientSession(trust_env=True)
+        session = aiohttp.ClientSession(trust_env=not SOCKS_PROXY_URL)
         r = await session.request(
             method="POST",
             url=f"{url}/embeddings",
@@ -933,6 +942,7 @@ async def embeddings(request: Request, form_data: dict, user):
                     else {}
                 ),
             },
+            proxy=SOCKS_PROXY_URL or None,
         )
         r.raise_for_status()
         if "text/event-stream" in r.headers.get("Content-Type", ""):
@@ -1021,13 +1031,14 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
             headers["Authorization"] = f"Bearer {key}"
             request_url = f"{url}/{path}"
 
-        session = aiohttp.ClientSession(trust_env=True)
+        session = aiohttp.ClientSession(trust_env=not SOCKS_PROXY_URL)
         r = await session.request(
             method=request.method,
             url=request_url,
             data=body,
             headers=headers,
             ssl=AIOHTTP_CLIENT_SESSION_SSL,
+            proxy=SOCKS_PROXY_URL or None,
         )
         r.raise_for_status()
 

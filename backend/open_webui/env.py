@@ -208,6 +208,12 @@ ENABLE_FORWARD_USER_INFO_HEADERS = (
 )
 
 ####################################
+# SOCKS proxy
+####################################
+
+SOCKS_PROXY_URL = os.environ.get("SOCKS_PROXY_URL", "")
+
+####################################
 # WEBUI_BUILD_HASH
 ####################################
 
