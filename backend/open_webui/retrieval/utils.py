@@ -25,6 +25,7 @@ from open_webui.env import (
     SRC_LOG_LEVELS,
     OFFLINE_MODE,
     ENABLE_FORWARD_USER_INFO_HEADERS,
+    SOCKS_PROXY_URL,
 )
 from open_webui.config import (
     RAG_EMBEDDING_QUERY_PREFIX,
@@ -688,6 +689,7 @@ def generate_openai_batch_embeddings(
                 ),
             },
             json=json_data,
+            proxies={"http": SOCKS_PROXY_URL, "https": SOCKS_PROXY_URL} if SOCKS_PROXY_URL else None,
         )
         r.raise_for_status()
         data = r.json()
@@ -737,6 +739,7 @@ def generate_azure_openai_batch_embeddings(
                     ),
                 },
                 json=json_data,
+                proxies={"http": SOCKS_PROXY_URL, "https": SOCKS_PROXY_URL} if SOCKS_PROXY_URL else None,
             )
             if r.status_code == 429:
                 retry = float(r.headers.get("Retry-After", "1"))
@@ -787,6 +790,7 @@ def generate_ollama_batch_embeddings(
                 ),
             },
             json=json_data,
+            proxies={"http": SOCKS_PROXY_URL, "https": SOCKS_PROXY_URL} if SOCKS_PROXY_URL else None,
         )
         r.raise_for_status()
         data = r.json()
