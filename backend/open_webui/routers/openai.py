@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal, Optional, overload
 
 import aiohttp
+from aiohttp_socks import ProxyConnector
 from aiocache import cached
 import requests
 
@@ -59,9 +60,13 @@ log.setLevel(SRC_LOG_LEVELS["OPENAI"])
 
 async def send_get_request(url, key=None, user: UserModel = None):
     timeout = aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST)
+    connector = (
+        ProxyConnector.from_url(SOCKS_PROXY_URL) if SOCKS_PROXY_URL else None
+    )
     try:
         async with aiohttp.ClientSession(
-            timeout=timeout, trust_env=not SOCKS_PROXY_URL
+            timeout=timeout, trust_env=not SOCKS_PROXY_URL, connector=connector
+
         ) as session:
             async with session.get(
                 url,
@@ -474,9 +479,13 @@ async def get_models(
         )
 
         r = None
+        connector = (
+            ProxyConnector.from_url(SOCKS_PROXY_URL) if SOCKS_PROXY_URL else None
+        )
         async with aiohttp.ClientSession(
-            trust_env=True,
+            trust_env=not SOCKS_PROXY_URL,
             timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST),
+            connector=connector,
         ) as session:
             try:
                 headers = {
@@ -569,9 +578,13 @@ async def verify_connection(
 
     api_config = form_data.config or {}
 
+    connector = (
+        ProxyConnector.from_url(SOCKS_PROXY_URL) if SOCKS_PROXY_URL else None
+    )
     async with aiohttp.ClientSession(
         trust_env=not SOCKS_PROXY_URL,
         timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST),
+        connector=connector,
     ) as session:
         try:
             headers = {
@@ -840,10 +853,15 @@ async def generate_chat_completion(
     streaming = False
     response = None
 
+    connector = (
+        ProxyConnector.from_url(SOCKS_PROXY_URL) if SOCKS_PROXY_URL else None
+    )
     try:
         session = aiohttp.ClientSession(
             trust_env=not SOCKS_PROXY_URL,
             timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT),
+            connector=connector,
+
         )
 
         r = await session.request(
@@ -922,8 +940,14 @@ async def embeddings(request: Request, form_data: dict, user):
     r = None
     session = None
     streaming = False
+    connector = (
+        ProxyConnector.from_url(SOCKS_PROXY_URL) if SOCKS_PROXY_URL else None
+    )
     try:
-        session = aiohttp.ClientSession(trust_env=not SOCKS_PROXY_URL)
+        session = aiohttp.ClientSession(
+            trust_env=not SOCKS_PROXY_URL, connector=connector
+        )
+
         r = await session.request(
             method="POST",
             url=f"{url}/embeddings",
@@ -1031,7 +1055,13 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
             headers["Authorization"] = f"Bearer {key}"
             request_url = f"{url}/{path}"
 
-        session = aiohttp.ClientSession(trust_env=not SOCKS_PROXY_URL)
+        connector = (
+            ProxyConnector.from_url(SOCKS_PROXY_URL) if SOCKS_PROXY_URL else None
+        )
+        session = aiohttp.ClientSession(
+            trust_env=not SOCKS_PROXY_URL, connector=connector
+        )
+
         r = await session.request(
             method=request.method,
             url=request_url,
